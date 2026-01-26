@@ -6,10 +6,9 @@ const NavItem = ({ to, children }) => {
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `relative px-2 py-2 font-medium transition-colors duration-200 ${
-          isActive
-            ? 'text-medical-blue'
-            : 'text-medical-gray hover:text-medical-blue'
+        `relative px-2 py-2 font-medium transition-colors duration-200 ${isActive
+          ? 'text-medical-blue'
+          : 'text-medical-gray hover:text-medical-blue'
         }`
       }
     >
@@ -45,6 +44,7 @@ const Header = () => {
             <NavItem to="/about">About</NavItem>
             {isAuthenticated ? (
               <>
+                <NavItem to="/dashboard">Dashboard</NavItem>
                 <NavItem to="/analyze">Analyze</NavItem>
                 <div className="ml-4 flex items-center space-x-4 pl-4 border-l border-gray-200">
                   <div className="flex items-center space-x-2">

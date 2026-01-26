@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import About from './pages/About';
 import Auth from './pages/Auth';
 import Analyze from './pages/Analyze';
+import Dashboard from './pages/Dashboard';
 import './App.css';
 
 function AppContent() {
@@ -21,6 +22,7 @@ function AppContent() {
           <Route path="/about" element={<About />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/analyze" element={<Analyze />} />
+          <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
       </main>
       {!isAuthPage && <Footer />}
