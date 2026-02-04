@@ -69,27 +69,27 @@ const Home = () => {
                                 <span className="text-gray-800">of Burn Scar</span>
                                 <br />
                                 <span className="text-gray-700">Progression</span>
-                            </h1>
+              </h1>
                             <p className="text-lg md:text-xl text-medical-blue font-semibold mb-3">
-                                AI-powered burn scar analysis & healing insights
-                            </p>
+                AI-powered burn scar analysis & healing insights
+              </p>
                             <p className="text-base md:text-lg text-medical-gray mb-8 leading-relaxed max-w-2xl">
-                                Advanced Vision Transformer technology for accurate burn degree detection,
-                                healing stage monitoring, and personalized treatment recommendations.
-                            </p>
+                Advanced Vision Transformer technology for accurate burn degree detection,
+                healing stage monitoring, and personalized treatment recommendations.
+              </p>
                             <div className="flex flex-col sm:flex-row gap-3">
-                                <button
-                                    onClick={handleAnalyzeClick}
+              <button
+                onClick={handleAnalyzeClick}
                                     className="group inline-flex items-center justify-center bg-gradient-to-r from-medical-blue via-blue-600 to-medical-teal text-white px-6 py-3 rounded-xl text-base font-bold hover:from-blue-600 hover:via-blue-700 hover:to-teal-600 transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:-translate-y-2 hover:scale-105"
-                                >
+              >
                                     <svg className="w-5 h-5 mr-2 group-hover:rotate-12 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    Analyze Burn Image
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Analyze Burn Image
                                     <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                     </svg>
-                                </button>
+              </button>
                                 <Link
                                     to="/about"
                                     className="inline-flex items-center justify-center border-2 border-medical-blue text-medical-blue px-6 py-3 rounded-xl text-base font-semibold hover:bg-medical-blue hover:text-white transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
@@ -97,7 +97,7 @@ const Home = () => {
                                     Learn More
                                 </Link>
                             </div>
-                        </div>
+            </div>
 
                         {/* Right Visual */}
                         <div className={`hidden lg:block scroll-zoom ${visibleSections.has('hero') ? 'visible' : ''}`}>
@@ -301,8 +301,8 @@ const Home = () => {
                                     <div className="flex items-center justify-center mb-8">
                                         <div className={`w-28 h-28 ${step.bgGradient} rounded-3xl flex items-center justify-center shadow-2xl animate-pulse-slow`}>
                                             <span className="text-5xl font-extrabold text-white">{step.number}</span>
-                                        </div>
                     </div>
+                  </div>
                                     <div className="mb-8">
                                         <div className={`w-full h-56 ${step.iconBg} rounded-2xl flex items-center justify-center relative overflow-hidden`}>
                                             <svg className={`w-32 h-32 ${step.iconColor} relative z-10`} fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,0 +1,19 @@
+# Firebase Service Account Key (NEVER COMMIT THIS!)
+firebase-service-account.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

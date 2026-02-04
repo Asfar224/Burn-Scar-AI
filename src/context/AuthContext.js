@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '../firebase-config';
+import { initializeUserDocument } from '../services/analysisService';
 
 const AuthContext = createContext();
 
@@ -17,13 +18,22 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
           displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
         });
+        // Ensure user document exists in Firestore
+        try {
+          await initializeUserDocument(firebaseUser.uid, {
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0]
+          });
+        } catch (error) {
+          console.error('Error initializing user document:', error);
+        }
       } else {
         setUser(null);
       }

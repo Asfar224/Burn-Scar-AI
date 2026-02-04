@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase-config';
+import { initializeUserDocument } from '../services/analysisService';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -36,7 +37,12 @@ const Auth = () => {
           setLoading(false);
           return;
         }
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        // Initialize user document if it doesn't exist (for existing users)
+        await initializeUserDocument(userCredential.user.uid, {
+          email: userCredential.user.email,
+          displayName: userCredential.user.displayName || userCredential.user.email?.split('@')[0]
+        });
         navigate('/analyze');
       } else {
         // Signup
@@ -58,6 +64,11 @@ const Auth = () => {
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         await updateProfile(userCredential.user, {
           displayName: formData.name,
+        });
+        // Create user document in Firestore
+        await initializeUserDocument(userCredential.user.uid, {
+          email: formData.email,
+          displayName: formData.name
         });
         navigate('/analyze');
       }

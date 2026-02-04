@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import torch
@@ -6,8 +6,11 @@ from transformers import ViTImageProcessor, ViTForImageClassification
 from PIL import Image
 import io
 import numpy as np
-from typing import List
+from typing import List, Optional
 import os
+from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, storage
 
 app = FastAPI(title="Burn Scar Analysis API")
 
@@ -20,12 +23,169 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Model paths (absolute path from backend folder)
+# Model paths (absolute path from backend folder) - MUST BE DEFINED FIRST
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(BASE_DIR)
-MODEL_PATH = os.path.join(PARENT_DIR, "VIT trained model", "vit_burn_model")
+MODEL_PATH = os.path.join(PARENT_DIR, "Trained Models", "vit_burn_model")
 CONFIG_PATH = os.path.join(MODEL_PATH, "config.json")
 MODEL_FILE = os.path.join(MODEL_PATH, "model.safetensors")
+
+# Initialize Firebase Admin SDK
+firebase_initialized = False
+firebase_app = None
+storage_bucket_name = None
+
+def get_storage_bucket_name(cred_path):
+    """Try to determine the correct storage bucket name"""
+    import json
+    # Try common bucket name formats
+    bucket_names = [
+        'burn-scar-ai.appspot.com',  # Standard Firebase Storage bucket
+        'burn-scar-ai.firebasestorage.app',  # Newer format
+    ]
+    
+    # Try to read project_id from service account
+    try:
+        if os.path.exists(cred_path):
+            with open(cred_path, 'r') as f:
+                cred_data = json.load(f)
+                project_id = cred_data.get('project_id', 'burn-scar-ai')
+                bucket_names.insert(0, f'{project_id}.appspot.com')
+    except:
+        pass
+    
+    return bucket_names
+
+def verify_firebase_storage(bucket_name=None):
+    """Verify Firebase Storage is actually accessible"""
+    try:
+        if bucket_name:
+            bucket = storage.bucket(bucket_name)
+        else:
+            bucket = storage.bucket()
+        # Just accessing the bucket to verify it works
+        _ = bucket.name
+        return True, bucket.name
+    except Exception as e:
+        return False, str(e)
+
+try:
+    # Try to use service account key file if it exists
+    cred_path = os.path.join(BASE_DIR, "firebase-service-account.json")
+    if os.path.exists(cred_path):
+        print(f"[INFO] Found service account file: {cred_path}")
+        cred = credentials.Certificate(cred_path)
+        
+        # Read project_id from service account to determine bucket name
+        import json
+        project_id = 'burn-scar-ai'
+        try:
+            with open(cred_path, 'r') as f:
+                cred_data = json.load(f)
+                project_id = cred_data.get('project_id', 'burn-scar-ai')
+        except Exception as json_error:
+            print(f"[WARN] Could not read project_id from service account: {json_error}")
+        
+        # Try both bucket name formats (newer .firebasestorage.app and older .appspot.com)
+        # Frontend config shows: storageBucket: "burn-scar-ai.firebasestorage.app"
+        bucket_names_to_try = [
+            f'{project_id}.firebasestorage.app',  # Newer format (matches frontend)
+            f'{project_id}.appspot.com',  # Older format (fallback)
+        ]
+        
+        initialized = False
+        for bucket_name in bucket_names_to_try:
+            try:
+                print(f"[INFO] Trying bucket: {bucket_name}")
+                # Delete any existing app before trying new one
+                try:
+                    firebase_admin.delete_app(firebase_app)
+                except:
+                    pass
+                
+                firebase_app = firebase_admin.initialize_app(cred, {
+                    'storageBucket': bucket_name
+                }, name='default')
+                
+                # Verify it actually works by trying to access the bucket
+                works, result = verify_firebase_storage(bucket_name)
+                if works:
+                    firebase_initialized = True
+                    storage_bucket_name = bucket_name
+                    print(f"[OK] Firebase Admin SDK initialized with bucket: {result}")
+                    initialized = True
+                    break
+                else:
+                    print(f"[WARN] Bucket {bucket_name} verification failed: {result}")
+                    try:
+                        firebase_admin.delete_app(firebase_app)
+                    except:
+                        pass
+            except Exception as init_error:
+                print(f"[WARN] Failed to initialize with bucket {bucket_name}: {init_error}")
+                try:
+                    firebase_admin.delete_app(firebase_app)
+                except:
+                    pass
+                continue
+        
+        if not initialized:
+            firebase_initialized = False
+            print(f"[ERROR] Could not initialize Firebase with any bucket format")
+            print(f"[INFO] Make sure Firebase Storage is enabled in Firebase Console")
+            print(f"[INFO] Go to: https://console.firebase.google.com/project/{project_id}/storage")
+            print(f"[INFO] Click 'Get Started' to enable Storage (creates default bucket)")
+    else:
+        print(f"[WARN] Service account file not found: {cred_path}")
+        # Use default credentials (for local development with gcloud auth)
+        try:
+            print("[INFO] Trying default credentials...")
+            # Try both bucket formats
+            bucket_names_to_try = [
+                'burn-scar-ai.firebasestorage.app',  # Newer format (matches frontend)
+                'burn-scar-ai.appspot.com',  # Older format
+            ]
+            
+            initialized = False
+            for bucket_name in bucket_names_to_try:
+                try:
+                    print(f"[INFO] Trying bucket: {bucket_name}")
+                    firebase_app = firebase_admin.initialize_app(options={
+                        'storageBucket': bucket_name
+                    }, name='default')
+                    # Verify it actually works
+                    works, result = verify_firebase_storage(bucket_name)
+                    if works:
+                        firebase_initialized = True
+                        storage_bucket_name = bucket_name
+                        print(f"[OK] Firebase Admin SDK initialized with default credentials, bucket: {result}")
+                        initialized = True
+                        break
+                    else:
+                        try:
+                            firebase_admin.delete_app(firebase_app)
+                        except:
+                            pass
+                except Exception as bucket_error:
+                    print(f"[WARN] Failed with bucket {bucket_name}: {bucket_error}")
+                    try:
+                        firebase_admin.delete_app(firebase_app)
+                    except:
+                        pass
+                    continue
+            
+            if not initialized:
+                firebase_initialized = False
+                print(f"[ERROR] Could not initialize with any bucket format")
+        except Exception as default_error:
+            print(f"[ERROR] Default credentials failed: {default_error}")
+            print("[INFO] To fix: Run 'gcloud auth application-default login' or add firebase-service-account.json")
+            firebase_initialized = False
+except Exception as e:
+    print(f"[ERROR] Firebase Admin SDK initialization failed: {e}")
+    print("[WARN] Image uploads to Firebase Storage will be skipped")
+    print("[INFO] To fix: Add firebase-service-account.json to backend/ folder or run 'gcloud auth application-default login'")
+    firebase_initialized = False
 
 # Global variables for model
 model = None
@@ -241,22 +401,96 @@ async def health():
     return {"status": "healthy", "model_loaded": model is not None}
 
 @app.post("/analyze")
-async def analyze_burn_image(file: UploadFile = File(...)):
+async def analyze_burn_image(
+    file: UploadFile = File(...),
+    userId: Optional[str] = Form(None)
+):
     """
-    Analyze burn image and return degree, healing stage, progression, and recommendations
+    Analyze burn image and return degree, healing stage, progression, and recommendations.
+    Also uploads image to Firebase Storage if userId is provided.
     """
+    image_url = None
+    
     try:
         # Validate file type
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File must be an image")
         
-        # Read image
+        # Read image data (we need it for both analysis and upload)
         image_data = await file.read()
         image = Image.open(io.BytesIO(image_data))
         
         # Convert to RGB if necessary
         if image.mode != 'RGB':
             image = image.convert('RGB')
+        
+        # Upload to Firebase Storage using Admin SDK (OPTIONAL - frontend handles uploads primarily)
+        # Backend upload is optional since frontend uses Firebase SDK directly
+        image_url = None  # Default to None - frontend will handle upload
+        
+        if userId and firebase_initialized:
+            # Try backend upload if available (optional)
+            # Firebase is initialized - try to upload
+            try:
+                timestamp = int(datetime.now().timestamp() * 1000)
+                # Sanitize filename to avoid path issues
+                safe_filename = file.filename.replace('/', '_').replace('\\', '_')
+                storage_path = f"analysis-images/{userId}/{timestamp}_{safe_filename}"
+                
+                print(f"[INFO] Uploading image to Firebase Storage via Admin SDK: {storage_path}")
+                print(f"[INFO] File size: {len(image_data)} bytes")
+                
+                # Get storage bucket - use explicit bucket name if we have it
+                try:
+                    if storage_bucket_name:
+                        bucket = storage.bucket(storage_bucket_name)
+                    else:
+                        bucket = storage.bucket()
+                    print(f"[OK] Storage bucket accessed: {bucket.name}")
+                except Exception as bucket_error:
+                    print(f"[ERROR] Cannot access storage bucket: {bucket_error}")
+                    print(f"[INFO] Trying to use default bucket from project...")
+                    # Try to get default bucket
+                    try:
+                        import json
+                        cred_path = os.path.join(BASE_DIR, "firebase-service-account.json")
+                        if os.path.exists(cred_path):
+                            with open(cred_path, 'r') as f:
+                                cred_data = json.load(f)
+                                project_id = cred_data.get('project_id', 'burn-scar-ai')
+                                default_bucket = f'{project_id}.appspot.com'
+                                bucket = storage.bucket(default_bucket)
+                                storage_bucket_name = default_bucket
+                                print(f"[OK] Using default bucket: {bucket.name}")
+                        else:
+                            raise Exception("Cannot determine bucket name")
+                    except Exception as fallback_error:
+                        print(f"[ERROR] Fallback bucket access failed: {fallback_error}")
+                        raise Exception(f"Firebase Storage not accessible: {bucket_error}")
+                
+                blob = bucket.blob(storage_path)
+                
+                # Set content type
+                blob.content_type = file.content_type or 'image/jpeg'
+                
+                # Upload image data using Admin SDK (no CORS, no direct HTTP requests)
+                print(f"[INFO] Uploading {len(image_data)} bytes...")
+                blob.upload_from_string(image_data, content_type=file.content_type)
+                print(f"[OK] Image uploaded successfully via Admin SDK")
+                
+                # Make the blob publicly accessible so frontend can display it
+                blob.make_public()
+                image_url = blob.public_url
+                
+                print(f"[OK] Image URL generated: {image_url}")
+            except Exception as upload_error:
+                print(f"[ERROR] Failed to upload to Firebase Storage: {upload_error}")
+                print(f"[ERROR] Error type: {type(upload_error).__name__}")
+                print(f"[ERROR] Error details: {str(upload_error)}")
+                import traceback
+                traceback.print_exc()
+                # Set image_url to None so frontend knows upload failed
+                image_url = None
         
         # Predict burn degree
         burn_degree_idx, confidence, all_probs = predict_burn_degree(image)
@@ -281,7 +515,7 @@ async def analyze_burn_image(file: UploadFile = File(...)):
             BURN_DEGREES[2]: round(all_probs[2] * 100, 2)
         }
         
-        return JSONResponse({
+        response_data = {
             "burn_degree": burn_degree,
             "burn_degree_index": burn_degree_idx,
             "confidence": round(confidence * 100, 2),
@@ -290,7 +524,18 @@ async def analyze_burn_image(file: UploadFile = File(...)):
             "progression_summary": progression_summary,
             "recommendations": recommendations,
             "burn_info": burn_info
-        })
+        }
+        
+        # Always include imageUrl (even if None/empty) so frontend knows the status
+        response_data["imageUrl"] = image_url if image_url else ""
+        
+        if not image_url and userId:
+            print(f"⚠️ WARNING: imageUrl is empty - image was not uploaded to Firebase Storage")
+            print(f"⚠️ Fix: Add firebase-service-account.json to backend/ folder")
+            print(f"⚠️ OR run: gcloud auth application-default login")
+            print(f"⚠️ See QUICK_SETUP.md for details")
+        
+        return JSONResponse(response_data)
     
     except HTTPException:
         raise

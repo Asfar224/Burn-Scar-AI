@@ -10,8 +10,8 @@ pip install -r requirements.txt
 ```
 
 2. Make sure your trained model is in the correct path:
-- Model config: `../VIT trained model/vit_burn_model/config.json`
-- Model weights: `../VIT trained model/vit_burn_model/model.safetensors`
+- Model config: `../Trained Models/vit_burn_model/config.json`
+- Model weights: `../Trained Models/vit_burn_model/model.safetensors`
 
 3. Run the server:
 ```bash

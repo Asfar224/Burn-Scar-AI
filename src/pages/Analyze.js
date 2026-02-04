@@ -28,30 +28,82 @@ const Analyze = () => {
     }
   }, [isAuthenticated, authLoading, navigate]);
 
-  //  Load history
+  // Normalize analysis data to handle both API (snake_case) and Firebase (camelCase) formats
+  const normalizeAnalysisData = (data) => {
+    if (!data) return null;
+    
+    return {
+      burn_degree: data.burn_degree || data.burnDegree || 'Unknown',
+      burn_degree_index: data.burn_degree_index !== undefined ? data.burn_degree_index : (data.burnDegreeIndex !== undefined ? data.burnDegreeIndex : -1),
+      confidence: data.confidence || 0,
+      confidence_breakdown: data.confidence_breakdown || data.confidenceBreakdown || {},
+      healing_stage: data.healing_stage || data.healingStage || 'N/A',
+      progression_summary: data.progression_summary || data.progressionSummary || '',
+      recommendations: data.recommendations || [],
+      burn_info: data.burn_info || data.burnInfo || null,
+      imageUrl: data.imageUrl
+    };
+  };
+
+  // Load history - only on initial load, then silent refresh
+  const loadHistoryRef = useRef(false); // Track if initial load happened
+  
   useEffect(() => {
-    const loadHistory = async () => {
-      if (user) {
+    if (!user || !user.uid) {
+      setHistory([]);
+      return;
+    }
+
+    const loadHistory = async (showLoader = false) => {
+      if (showLoader) {
+        console.log('🔄 Analyze: Loading history for user:', user.uid);
         setLoadingHistory(true);
-        try {
-          const analyses = await getUserAnalyses(user.uid);
-          setHistory(analyses);
-        } catch (error) {
-          console.error('Error loading history:', error);
-        } finally {
+      } else {
+        console.log('🔄 Analyze: Silently refreshing history...');
+      }
+      try {
+        const analyses = await getUserAnalyses(user.uid);
+        console.log('✅ Analyze: History loaded, count:', analyses.length);
+        if (analyses.length > 0 && showLoader) {
+          console.log('📋 Analyze: First analysis:', {
+            id: analyses[0].id,
+            burnDegree: analyses[0].burnDegree,
+            confidence: analyses[0].confidence
+          });
+        }
+        setHistory(analyses);
+        loadHistoryRef.current = true; // Mark as loaded
+      } catch (error) {
+        console.error('❌ Analyze: Error loading history:', error);
+        setHistory([]);
+      } finally {
+        if (showLoader) {
           setLoadingHistory(false);
         }
       }
     };
 
-    loadHistory();
+    // Only show loader on first load
+    if (!loadHistoryRef.current) {
+      loadHistory(true);
+    }
+    
+    // Auto-refresh history every 5 seconds silently (no loader, no blinking)
+    const refreshInterval = setInterval(() => {
+      if (user && user.uid) {
+        loadHistory(false); // Silent refresh
+      }
+    }, 5000);
+
+    return () => clearInterval(refreshInterval);
   }, [user]);
 
   // Handle selected analysis from location state
   useEffect(() => {
     if (location.state?.selectedAnalysis) {
       const analysis = location.state.selectedAnalysis;
-      setResults(analysis);
+      const normalized = normalizeAnalysisData(analysis);
+      setResults(normalized);
       setPreview(analysis.imageUrl);
       setShowPrecautions(false);
     }
@@ -110,6 +162,13 @@ const Analyze = () => {
     try {
       const formData = new FormData();
       formData.append('file', selectedImage);
+      // Always send userId so backend can upload to Firebase Storage
+      if (user && user.uid) {
+        formData.append('userId', user.uid);
+        console.log('📤 Sending userId to backend:', user.uid);
+      } else {
+        console.warn('⚠️ No user.uid available - backend cannot upload image');
+      }
 
       const response = await fetch(`${API_URL}/analyze`, {
         method: 'POST',
@@ -122,18 +181,49 @@ const Analyze = () => {
       }
 
       const data = await response.json();
+      console.log('📊 Analysis response received:', {
+        burn_degree: data.burn_degree,
+        hasImageUrl: !!data.imageUrl,
+        imageUrl: data.imageUrl || 'EMPTY'
+      });
       setResults(data);
 
       // Save to Firestore
-      if (user) {
+      if (user && user.uid) {
         try {
-          await saveAnalysis(user.uid, selectedImage, data);
-          // Reload history
-          const analyses = await getUserAnalyses(user.uid);
-          setHistory(analyses);
+          console.log('💾 Saving analysis for user:', user.uid);
+          const savedAnalysis = await saveAnalysis(user.uid, selectedImage, data);
+          console.log('✅ Analysis saved successfully:', savedAnalysis.id);
+          
+          // Silently reload history (no loader, no blinking)
+          try {
+            console.log('🔄 Silently reloading history after save...');
+            const analyses = await getUserAnalyses(user.uid);
+            console.log('✅ History reloaded, count:', analyses.length);
+            setHistory(analyses);
+            
+            // Verify the saved analysis is in history
+            const found = analyses.find(a => a.id === savedAnalysis.id);
+            if (found) {
+              console.log('✅ Saved analysis found in history!');
+            } else {
+              console.warn('⚠️ Saved analysis not found in history yet - will appear on next refresh');
+            }
+          } catch (reloadError) {
+            console.error('❌ Error reloading history:', reloadError);
+          }
         } catch (saveError) {
-          console.error('Error saving analysis:', saveError);
+          console.error('❌ Error saving analysis:', saveError);
+          console.error('❌ Save error details:', {
+            code: saveError.code,
+            message: saveError.message,
+            stack: saveError.stack
+          });
+          // Show error to user but don't block the UI
+          setError('Analysis completed but failed to save to history. Results are still displayed.');
         }
+      } else {
+        console.warn('⚠️ No user available to save analysis');
       }
     } catch (err) {
       setError(err.message || 'Failed to analyze image. Please try again.');
@@ -246,7 +336,8 @@ const Analyze = () => {
                     key={analysis.id}
                     className="bg-white rounded-md p-2.5 cursor-pointer hover:bg-gray-50 transition-all border border-gray-200/50 hover:border-gray-300 group"
                     onClick={() => {
-                      setResults(analysis);
+                      const normalized = normalizeAnalysisData(analysis);
+                      setResults(normalized);
                       setPreview(analysis.imageUrl);
                       setShowPrecautions(false);
                     }}
@@ -282,15 +373,9 @@ const Analyze = () => {
             </div>
           </>
         ) : (
-          /* Collapsed View - Just Icon with Count */
+          /* Collapsed View - Just Icon */
           <div className="flex-1 flex flex-col items-center justify-center">
-            <div className="relative">
-              {history.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-medical-blue text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center z-10">
-                  {history.length > 9 ? '9+' : history.length}
-                </span>
-              )}
-            </div>
+            {/* No badge in collapsed view */}
           </div>
         )}
       </div>
@@ -418,9 +503,9 @@ const Analyze = () => {
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                       className={`border-2 border-dashed rounded-lg p-8 text-center transition-all cursor-pointer ${isDragging
-                          ? 'border-medical-blue bg-medical-blue/5 scale-105'
+                      ? 'border-medical-blue bg-medical-blue/5 scale-105'
                           : 'border-gray-300 hover:border-medical-blue/50 hover:bg-white'
-                        }`}
+                  }`}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <div className="flex flex-col items-center">
@@ -515,11 +600,11 @@ const Analyze = () => {
             </div>
           </div>
 
-              {/* Results Section */}
+          {/* Results Section */}
               <div className="lg:col-span-2 space-y-4">
             {results ? (
               <>
-                    {/* Main Result Card */}
+                {/* Main Result Card */}
                     <div className={`bg-gradient-to-br ${getBurnDegreeColor(results.burn_degree)} rounded-lg border border-gray-200/50 p-5`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
@@ -571,7 +656,7 @@ const Analyze = () => {
                     </svg>
                     Prediction Confidence
                   </h3>
-                      <div className="space-y-3">
+                  <div className="space-y-3">
                     {Object.entries(results.confidence_breakdown || {}).map(([degree, confidence]) => (
                           <div key={degree}>
                             <div className="flex items-center justify-between mb-1.5">
@@ -581,7 +666,7 @@ const Analyze = () => {
                             <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                                 className={`h-2 rounded-full transition-all ${degree === results.burn_degree
-                                    ? 'bg-medical-blue'
+                                  ? 'bg-medical-blue'
                                   : 'bg-gray-300'
                               }`}
                               style={{ width: `${confidence}%` }}

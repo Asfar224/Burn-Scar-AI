@@ -47,23 +47,23 @@ build/
 *.pyd
 
 # Model files (too large for git)
-**/VIT trained model/**/*.safetensors
-**/VIT trained model/**/*.bin
-**/VIT trained model/**/*.pt
-**/VIT trained model/**/*.pth
-**/VIT trained model/**/*.ckpt
+**/Trained Models/**/*.safetensors
+**/Trained Models/**/*.bin
+**/Trained Models/**/*.pt
+**/Trained Models/**/*.pth
+**/Trained Models/**/*.ckpt
 *.safetensors
 
 # Dataset files (too large)
-**/VIT trained model/processed_dataset/
-**/VIT trained model/processed_dataset1/
-**/VIT trained model/raw_dataset/
-**/VIT trained model/*.zip
+**/Trained Models/processed_dataset/
+**/Trained Models/processed_dataset1/
+**/Trained Models/raw_dataset/
+**/Trained Models/*.zip
 
 # Results and cache
-**/VIT trained model/results/*.jpg
-**/VIT trained model/results/*.jpeg
-**/VIT trained model/**/__pycache__/
+**/Trained Models/results/*.jpg
+**/Trained Models/results/*.jpeg
+**/Trained Models/**/__pycache__/
 
 # IDE
 .vscode/
