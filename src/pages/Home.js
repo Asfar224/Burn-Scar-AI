@@ -38,7 +38,7 @@ const Home = () => {
   };
 
   return (
-        <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white">
+      <div className="min-h-screen bg-gradient-to-b from-white via-gray-50/30 to-white minimal-scale">
             {/* Hero Section - PROPER PROPORTIONS - FITS SCREEN */}
             <section
                 ref={(el) => (sectionsRef.current[0] = el)}

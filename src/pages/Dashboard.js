@@ -18,7 +18,7 @@ const Dashboard = () => {
     const [chartData, setChartData] = useState(null);
     const [visibleSections, setVisibleSections] = useState(new Set());
     const sectionsRef = useRef([]);
-    const hasLoadedRef = useRef(false); // Track if data has been loaded
+    const hasLoadedRef = useRef(false); 
     const monthlyTrendChartRef = useRef(null);
 
     useEffect(() => {

@@ -74,7 +74,7 @@ const imageToBase64 = (file) => {
     });
 };
 
-export const saveAnalysis = async (userId, imageFile, analysisResult) => {
+export const saveAnalysis = async (userId, imageFileOrFiles, analysisResult) => {
     try {
         console.log('🔄 Starting saveAnalysis for user:', userId);
         
@@ -82,18 +82,35 @@ export const saveAnalysis = async (userId, imageFile, analysisResult) => {
         // This works immediately with Firebase free tier
         let imageUrl = '';
         let imageBase64 = '';
+        let images = [];
+        let imagesBase64 = [];
+        let imageNames = [];
         const timestamp = Date.now();
         
-        // Convert image to base64 (compressed for Firestore size limits)
-        console.log('📤 Converting image to base64 (no billing required)');
+        // Support multiple images (array) or single image
+        console.log('📤 Converting image(s) to base64 (no billing required)');
         try {
-            imageBase64 = await imageToBase64(imageFile);
-            // Use base64 as imageUrl for display (data URL)
-            imageUrl = imageBase64;
-            console.log('✅ Image converted to base64, size:', Math.round(imageBase64.length / 1024), 'KB');
+            if (Array.isArray(imageFileOrFiles)) {
+                const files = imageFileOrFiles;
+                const promises = files.map(f => imageToBase64(f).catch(err => { console.warn('convert failed', err); return ''; }));
+                imagesBase64 = await Promise.all(promises);
+                images = imagesBase64.filter(Boolean);
+                imageUrl = images[0] || '';
+                imageBase64 = imagesBase64[0] || '';
+                imageNames = files.map(f => f.name || '');
+                console.log('✅ Converted', images.length, 'images');
+            } else {
+                const file = imageFileOrFiles;
+                imageBase64 = await imageToBase64(file);
+                imageUrl = imageBase64;
+                images = [imageUrl];
+                imagesBase64 = [imageBase64];
+                imageNames = [file.name];
+                console.log('✅ Image converted to base64, size:', Math.round(imageBase64.length / 1024), 'KB');
+            }
         } catch (convertError) {
-            console.error('❌ Failed to convert image to base64:', convertError);
-            console.warn('⚠️ Image will be saved without data - analysis data will still be saved');
+            console.error('❌ Failed to convert image(s) to base64:', convertError);
+            console.warn('⚠️ Image(s) will be saved without data - analysis data will still be saved');
         }
 
         // Step 2: Create history item with all required fields
@@ -101,9 +118,11 @@ export const saveAnalysis = async (userId, imageFile, analysisResult) => {
         const createdAt = new Date().toISOString();
         const historyItem = {
             id: `${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
-            imageUrl: imageUrl, // Base64 data URL (no external storage needed, no billing)
-            imageBase64: imageBase64, // Store base64 separately for easy access
-            imageName: imageFile.name,
+            imageUrl: imageUrl, // first image (data URL)
+            imageBase64: imageBase64, // first image base64
+            images: images, // array of data URLs
+            imagesBase64: imagesBase64,
+            imageNames: imageNames,
             burnDegree: analysisResult.burn_degree || 'Unknown',
             burnDegreeIndex: analysisResult.burn_degree_index !== undefined ? analysisResult.burn_degree_index : -1,
             confidence: analysisResult.confidence || 0,
@@ -112,6 +131,8 @@ export const saveAnalysis = async (userId, imageFile, analysisResult) => {
             progressionSummary: analysisResult.progression_summary || '',
             recommendations: analysisResult.recommendations || [],
             burnInfo: analysisResult.burn_info || null,
+            modelUsed: analysisResult.model_used || analysisResult.modelUsed || analysisResult.model || 'unknown',
+            rawResult: analysisResult || {},
             createdAt: createdAt,
             timestamp: createdAt // Use ISO string instead of serverTimestamp() for array items
         };
@@ -225,9 +246,12 @@ export const getUserAnalyses = async (userId) => {
             return {
                 id: item.id || `analysis_${index}_${Date.now()}`,
                 userId: userId,
-                imageUrl: item.imageUrl || item.imageBase64 || '', // Use imageBase64 as fallback
-                imageBase64: item.imageBase64 || item.imageUrl || '', // Include both for compatibility
-                imageName: item.imageName || '',
+                // Prefer images array if present
+                images: item.images && item.images.length > 0 ? item.images : (item.imageUrl ? [item.imageUrl] : []),
+                imagesBase64: item.imagesBase64 && item.imagesBase64.length > 0 ? item.imagesBase64 : (item.imageBase64 ? [item.imageBase64] : []),
+                imageNames: item.imageNames || (item.imageName ? [item.imageName] : []),
+                imageUrl: (item.images && item.images.length > 0) ? item.images[0] : (item.imageUrl || item.imageBase64 || ''), // first image
+                imageBase64: (item.imagesBase64 && item.imagesBase64.length > 0) ? item.imagesBase64[0] : (item.imageBase64 || item.imageUrl || ''),
                 burnDegree: item.burnDegree || 'Unknown',
                 burnDegreeIndex: item.burnDegreeIndex !== undefined ? item.burnDegreeIndex : -1,
                 confidence: item.confidence || 0,
@@ -236,6 +260,8 @@ export const getUserAnalyses = async (userId) => {
                 progressionSummary: item.progressionSummary || '',
                 recommendations: item.recommendations || [],
                 burnInfo: item.burnInfo || null,
+                modelUsed: item.modelUsed || item.model_used || item.rawResult?.model_used || 'unknown',
+                rawResult: item.rawResult || item,
                 timestamp: item.timestamp,
                 createdAt: createdAt
             };
