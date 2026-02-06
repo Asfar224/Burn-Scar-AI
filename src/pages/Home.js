@@ -43,7 +43,7 @@ const Home = () => {
             <section
                 ref={(el) => (sectionsRef.current[0] = el)}
                 data-section="hero"
-                className="relative min-h-screen flex items-center py-16 md:py-20 overflow-hidden"
+                className="relative min-h-[70vh] flex items-center py-8 md:py-12 overflow-hidden"
             >
                 {/* Animated Background Elements */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -61,7 +61,7 @@ const Home = () => {
                                     🔥 AI-Powered Medical Technology
                                 </span>
                             </div>
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 leading-tight">
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-3 leading-tight">
                                 <span className="bg-gradient-to-r from-medical-blue via-blue-600 to-medical-teal bg-clip-text text-transparent bg-[length:200%_auto] animate-gradientShift">
                                     Intelligent Analysis
                                 </span>
@@ -70,13 +70,12 @@ const Home = () => {
                                 <br />
                                 <span className="text-gray-700">Progression</span>
               </h1>
-                            <p className="text-lg md:text-xl text-medical-blue font-semibold mb-3">
-                AI-powered burn scar analysis & healing insights
-              </p>
-                            <p className="text-base md:text-lg text-medical-gray mb-8 leading-relaxed max-w-2xl">
-                Advanced Vision Transformer technology for accurate burn degree detection,
-                healing stage monitoring, and personalized treatment recommendations.
-              </p>
+                                                        <p className="text-base md:text-lg text-medical-blue font-medium mb-2">
+                                AI-powered burn scar analysis (ViT, CNN, CNN-LSTM)
+                            </p>
+                                                        <p className="text-sm md:text-base text-medical-gray mb-6 leading-relaxed max-w-2xl">
+                                                                  We use ViT, EfficientNet CNNs, and a CNN-LSTM sequence model for accurate per-image and progression analysis.
+                                                        </p>
                             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleAnalyzeClick}
@@ -102,8 +101,8 @@ const Home = () => {
                         {/* Right Visual */}
                         <div className={`hidden lg:block scroll-zoom ${visibleSections.has('hero') ? 'visible' : ''}`}>
               <div className="relative">
-                                <div className="bg-gradient-to-br from-white via-medical-blue/5 to-medical-teal/5 rounded-3xl p-12 shadow-2xl border border-gray-200/50 backdrop-blur-sm">
-                                    <div className="bg-white rounded-2xl p-10 shadow-xl animate-float">
+                                <div className="bg-gradient-to-br from-white via-medical-blue/5 to-medical-teal/5 rounded-2xl p-8 shadow-md border border-gray-200/40 backdrop-blur-sm">
+                                    <div className="bg-white rounded-xl p-6 shadow-sm animate-float">
                                         <svg className="w-48 h-48 text-medical-blue mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
@@ -139,9 +138,9 @@ const Home = () => {
             <section
                 ref={(el) => (sectionsRef.current[1] = el)}
                 data-section="features"
-                className="py-16 md:py-20 bg-white relative"
+                className="py-12 md:py-16 bg-white relative"
             >
-                <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Section Header */}
                     <div className={`text-center mb-16 scroll-slide-up ${visibleSections.has('features') ? 'visible' : ''}`}>
                         <div className="inline-block mb-4">
@@ -271,7 +270,7 @@ const Home = () => {
                                 {
                                     number: '2',
                                     title: 'AI Analyzes Scar',
-                                    description: 'Advanced Vision Transformer models process the image to detect burn degree and assess healing progress in seconds.',
+                                    description: 'Advanced vision models (ViT and CNN) process the image to detect burn degree and assess healing progress; sequence models (CNN-LSTM) analyze multiple timepoints for true progression insights.',
                                     icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
                                     bgGradient: 'bg-gradient-to-br from-medical-teal via-teal-600 to-medical-teal/80',
                                     iconColor: 'text-medical-teal',

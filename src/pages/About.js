@@ -30,7 +30,7 @@ const About = () => {
             <section
                 ref={(el) => (sectionsRef.current[0] = el)}
                 data-section="overview"
-                className="relative min-h-[75vh] flex items-center py-10 md:py-14 overflow-hidden"
+                className="relative min-h-[60vh] flex items-center py-8 md:py-12 overflow-hidden"
             >
                 {/* Animated Background */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -38,7 +38,7 @@ const About = () => {
                     <div className="absolute bottom-32 left-20 w-96 h-96 bg-medical-teal/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '3s' }}></div>
                 </div>
 
-                <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full">
+                <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
                         {/* Left Content */}
                         <div className={`scroll-slide-left ${visibleSections.has('overview') ? 'visible' : ''}`}>
@@ -47,7 +47,7 @@ const About = () => {
                                     📋 Project Overview
                                 </span>
                             </div>
-                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-4 leading-tight">
                                 <span className="bg-gradient-to-r from-medical-blue via-blue-600 to-medical-teal bg-clip-text text-transparent bg-[length:200%_auto] animate-gradientShift">
                                     About the
                                 </span>
@@ -59,7 +59,7 @@ const About = () => {
                                     <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3">
                                         Project Overview
                                     </h2>
-                                    <p className="text-base md:text-lg text-medical-gray leading-relaxed mb-3">
+                                    <p className="text-sm md:text-base text-medical-gray leading-relaxed mb-2">
                                         The <strong className="text-gray-900">Intelligent Analysis of Burn Scar Progression with Treatment Recommendations</strong> is
                                         a cutting-edge medical AI system designed to revolutionize how healthcare professionals monitor and
                                         assess burn injuries. This system leverages advanced artificial intelligence to provide accurate,
@@ -76,13 +76,13 @@ const About = () => {
 
                         {/* Right Stats */}
                         <div className={`hidden lg:block scroll-zoom ${visibleSections.has('overview') ? 'visible' : ''}`}>
-                            <div className="bg-white rounded-3xl p-12 shadow-2xl border border-gray-200/50 backdrop-blur-sm">
+                                <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200/40 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-6">
                                     {[
                                         { value: '95%+', label: 'Accuracy Rate', bgClass: 'bg-gradient-to-br from-medical-blue/20 to-medical-blue/10', textClass: 'text-medical-blue', barClass: 'bg-gradient-to-r from-medical-blue to-medical-blue/80', barBg: 'bg-medical-blue/20', delay: '0.1s' },
                                         { value: '24/7', label: 'Available', bgClass: 'bg-gradient-to-br from-medical-teal/20 to-medical-teal/10', textClass: 'text-medical-teal', barClass: 'bg-gradient-to-r from-medical-teal to-medical-teal/80', barBg: 'bg-medical-teal/20', delay: '0.2s' },
                                         { value: 'AI', label: 'Powered', bgClass: 'bg-gradient-to-br from-medical-blue/20 to-medical-blue/10', textClass: 'text-medical-blue', barClass: 'bg-gradient-to-r from-medical-blue to-medical-blue/80', barBg: 'bg-medical-blue/20', delay: '0.3s' },
-                                        { value: 'ViT', label: 'Technology', bgClass: 'bg-gradient-to-br from-medical-teal/20 to-medical-teal/10', textClass: 'text-medical-teal', barClass: 'bg-gradient-to-r from-medical-teal to-medical-teal/80', barBg: 'bg-medical-teal/20', delay: '0.4s' }
+                                        { value: 'Models', label: 'ViT • CNN • LSTM', bgClass: 'bg-gradient-to-br from-medical-teal/20 to-medical-teal/10', textClass: 'text-medical-teal', barClass: 'bg-gradient-to-r from-medical-teal to-medical-teal/80', barBg: 'bg-medical-teal/20', delay: '0.4s' }
                                     ].map((stat, index) => (
                                         <div
                                             key={index}
@@ -98,7 +98,7 @@ const About = () => {
                                     ))}
                   </div>
 
-                                <div className="mt-8 p-6 bg-gradient-to-r from-medical-blue/10 to-medical-teal/10 rounded-2xl border border-gray-200/50 animate-fadeInUp" style={{ animationDelay: '0.5s' }}>
+                                <div className="mt-6 p-4 bg-gradient-to-r from-medical-blue/10 to-medical-teal/10 rounded-xl border border-gray-200/40 animate-fadeInUp" style={{ animationDelay: '0.5s' }}>
                                     <div className="flex items-center space-x-4">
                                         <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50"></div>
                                         <div>
@@ -117,7 +117,7 @@ const About = () => {
             <section
                 ref={(el) => (sectionsRef.current[1] = el)}
                 data-section="problem"
-                className="py-16 md:py-20 bg-white relative"
+                className="py-12 md:py-16 bg-white relative"
             >
                 <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12">
                     {/* Section Header */}
@@ -225,7 +225,7 @@ const About = () => {
                             {
                                 icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
                                 title: 'Vision Transformer Technology',
-                                description: 'At the core of our system is Vision Transformer (ViT) architecture, a cutting-edge AI model that processes images by understanding relationships between different parts of the image. This technology allows for more accurate and nuanced analysis.',
+                                description: 'We use ViT for single-image analysis, EfficientNet CNN for fast per-image classification, and a CNN-LSTM model for sequence progression analysis.',
                                 bgClass: 'bg-gradient-to-br from-medical-teal/20 to-medical-teal/10',
                                 iconClass: 'text-medical-teal',
                                 delay: '0.2s'
@@ -299,8 +299,8 @@ const About = () => {
                             },
                             {
                                 icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
-                                title: 'Vision Transformers',
-                                description: 'Advanced transformer architecture specifically adapted for medical image analysis and pattern recognition.',
+                                title: 'Vision Models (ViT & CNN)',
+                                description: 'We combine Vision Transformer (ViT) for detailed single-image understanding with EfficientNet-based CNNs for fast, robust per-image classification. For progression analysis across timepoints we use a CNN-LSTM sequence model.',
                                 bgClass: 'bg-gradient-to-br from-medical-teal/10 to-medical-teal/5',
                                 borderClass: 'border-medical-teal/20',
                                 iconClass: 'text-medical-teal',
