@@ -1,0 +1,250 @@
+Final Year Project — Filled Content for Template Headings
+
+Title Page (placeholders)
+
+Project Title: Intelligent Analysis of Burn Scar Progression with Treatment Recommendations
+Student Name: [INSERT STUDENT NAME]
+Student ID: [INSERT STUDENT ID]
+Supervisor: [INSERT SUPERVISOR NAME]
+Department: [INSERT DEPARTMENT]
+University: [INSERT UNIVERSITY]
+Course: [INSERT COURSE / CODE]
+Date of Submission: [INSERT DATE]
+
+
+Abstract
+
+This project develops an end-to-end system for automated analysis and monitoring of burn scars using photographic records. The system integrates three modeling strategies: a Vision Transformer (ViT) for high-capacity single-image classification, an EfficientNet-based Convolutional Neural Network (CNN) for efficient per-image inference and fallback behavior, and a CNN–LSTM sequence model with attention to detect temporal progression across multiple timepoints. The web application provides an intuitive interface for single-image analysis, multi-image sequence uploads (including extraction from PDF documents), and a history system backed by Firebase. The backend uses FastAPI and PyTorch and includes robust model-loading logic and graceful fallback when sequence models are unavailable. We evaluate single-image classification performance and qualitative sequence trend detection on held-out validation data, and we discuss engineering, privacy, and clinical considerations for deployment. This report documents motivation, literature background, methodology, implementation details, experiments, results, limitations, and directions for future work.
+
+
+Acknowledgements
+
+I thank my project supervisor, [SUPERVISOR NAME], for guidance and feedback throughout this project. I also acknowledge support from colleagues and friends who provided dataset curation assistance, and the maintainers of the open-source libraries and tools used in this work (PyTorch, Transformers, FastAPI, React, and Firebase). Any medical insights used in dataset labeling were consulted with clinical collaborators and domain experts where possible.
+
+
+Declaration
+
+I declare that this submission is my own work and that, except where appropriately referenced, all material in this report is original. Where code or content from other sources was used, it has been cited and acknowledged. This project has not been submitted for any other degree or award.
+
+
+Table of Contents
+
+(Insert an auto-generated TOC in the DOCX editor after pasting content.)
+
+
+1. Introduction
+
+Burn injuries are a major cause of morbidity and disability worldwide, and accurate monitoring of progression and healing is critical for delivering appropriate care. Traditional assessment relies on clinical examination, sometimes supported by photographs captured at different timepoints. These photographic records can provide valuable temporal information, but manual interpretation is time-consuming and subject to inter-clinician variability. This project explores automated techniques to support clinicians by producing reproducible per-image assessments and summarizing progression across time.
+
+The project aims to develop a practical web-based prototype that supports: (1) single-image burn severity classification, (2) multi-image sequence analysis to determine whether the condition is improving, stable or worsening, and (3) a persistent history of analyses for patients. Key contributions include integration of complementary model families (transformer, CNN, and sequence models), engineering for robust inference and model fallback, and a user-oriented interface suitable for clinician or patient workflows.
+
+
+2. Background and Literature Review
+
+2.1 Clinical Context and Need
+
+Burn wounds are clinically categorized by depth and severity, commonly grouped into superficial (first-degree), partial-thickness (second-degree), and full-thickness (third-degree) categories. Appropriate clinical decisions commonly depend on changes over time—improvement indicates successful treatment, whereas worsening can signal infection or complications requiring intervention. Automated tools that provide objective, reproducible assessments and highlight concerning trends can support earlier intervention and more consistent patient monitoring.
+
+2.2 Computer Vision in Medicine
+
+Deep learning, specifically convolutional neural networks (CNNs), have become predominant in medical image analysis due to their ability to learn hierarchical features from raw images. Recently, Vision Transformers (ViT) have shown strong results in image classification tasks by leveraging attention mechanisms adapted from NLP. For longitudinal assessment, sequence models such as LSTMs or temporal transformers can aggregate temporal signals from per-image features.
+
+2.3 Prior Work on Burn Analysis
+
+Existing literature includes several studies applying CNNs to burn classification tasks, with varying datasets and labels. Research on progression analysis is less common; this project builds on the idea of combining per-image feature extractors with temporal sequence models to model progression. The choice of ViT and EfficientNet backbones is informed by their strong performance in transfer-learning settings and their efficient representation capacity.
+
+
+3. Project Objectives and Scope
+
+Primary objectives:
+- Implement and integrate three complementary model pipelines for burn assessment: ViT for single-image accuracy, EfficientNet CNN for efficient per-image predictions, and a CNN–LSTM sequence model for progression analysis.
+- Build a responsive web UI that supports single-image upload, multi-image sequences including PDF extraction, and a history view persisted to Firebase.
+- Provide robust backend engineering: tolerant multipart parsing, stable model-loading with fallback behavior, and JSON responses containing per-image predictions and a human-readable progression summary.
+
+Scope and limits:
+- The system is a research prototype and not a clinically validated diagnostic tool.
+- The report omits a full thesis and a formal Software Requirements Specification (SRS) per instruction; instead it focuses on implementation, experiments, and evaluation details.
+
+
+4. System Design and Methodology
+
+4.1 High-level Architecture
+
+The system is a client-server web application. The frontend is a React app styled with Tailwind CSS that provides image selection, PDF extraction using `pdfjs-dist`, and sequence organization. The backend is a FastAPI app using PyTorch for model inference. Firebase (Firestore and Storage) provides optional persistent storage for history entries and image uploads.
+
+4.2 Data Pipeline
+
+Data resides in project folders with raw and processed splits (`raw_dataset/`, `processed_dataset/`). Images are preprocessed for models using standard resizing (224x224) and normalization consistent with ImageNet statistics for CNN backbones and model-specific processors for ViT. Augmentations used during training included random crops, flips, and color jitter where appropriate.
+
+4.3 Models and Rationale
+
+4.3.1 Vision Transformer (ViT)
+
+- Fine-tuned ViT used for high-capacity single-image predictions.
+- Preprocessing uses `ViTImageProcessor` from the Transformers library, which handles resizing, normalization, and tensor conversion.
+
+4.3.2 EfficientNet (CNN)
+
+- EfficientNet-B0 backbone used as a compact, efficient classifier for per-image predictions and as a feature extractor for sequence models.
+- The final head is replaced with dropout + linear classifier for three classes.
+
+4.3.3 CNN–LSTM Sequence Model
+
+- Architecture: EfficientNet-B0 feature extractor producing 1280-d feature vectors, followed by a bidirectional LSTM (hidden_dim=512, num_layers=2) and an attention-based aggregation module. The aggregated representation is fed to a classifier head.
+- Purpose: model temporal progression between timepoints to produce an overall sequence judgment (improving/stable/worsening) and to assist in building a human-readable progression summary.
+
+
+5. Implementation Details
+
+5.1 Backend
+
+- Entry point: `backend/api.py` implements a FastAPI app with a startup lifespan handler that preloads the ViT model for responsiveness.
+- Endpoint `/analyze`: accepts multipart form data, collects `files` fields (multiple allowed), detects `model` selection (`vit`, `cnn`, `cnn_lstm`) and attempts the appropriate pipeline:
+  - `vit`: single-image ViT inference.
+  - `cnn`: per-image EfficientNet inference.
+  - `cnn_lstm`: for sequences, the server attempts to load the sequence model and run sequence inference; if loading fails, it falls back to per-image CNN inference and sets a `model_used` field to `cnn_fallback`.
+- Model loader logic: robust state dict handling that strips common checkpoint prefixes (`module.`), tries both strict and non-strict loading, and logs detailed warnings.
+- Response format: JSON with `predictions` array (per image), `progression_summary` (human readable), `model_used`, and various confidence metrics.
+
+5.2 Frontend
+
+- Main features implemented in `src/pages/Analyze.js`:
+  - Model selector for user to choose ViT/CNN/CNN-LSTM.
+  - File input with an "Add image" tile that appends images to the sequence (up to a cumulative cap, visually limited to 10 in UI).
+  - PDF extraction to convert pages into images using `pdfjs-dist`.
+  - An enhanced progression UI that shows a trend badge and per-image confidence bars.
+- History: `src/services/analysisService.js` provides `saveAnalysis` and `loadHistory` functions that persist analyses to Firestore; saved entries include `imagesBase64`, `imageNames`, `modelUsed`, and `rawResult`.
+
+5.3 Engineering Considerations
+
+- Error handling: backend uses tolerant parsing of multipart data to avoid 422 errors and safe printing helpers to avoid Windows console encoding issues.
+- Port probing: the server checks a small port range before binding to avoid conflicts.
+- Logging: structured logs include model load events, file counts, and warning traces for failed loads.
+
+
+6. Training and Experimental Setup
+
+6.1 Training Scripts
+
+- Training scripts are provided in the `Trained Models/` directory and include procedures for fine-tuning ViT and training the CNN–LSTM sequence model.
+- Checkpointing: models are saved with `state_dict` keys; for distributed or DataParallel training checkpoints, the loader strips `module.` prefixes to ensure compatibility.
+
+6.2 Evaluation Methodology
+
+- Single-image evaluation uses standard classification metrics: accuracy, precision, recall, F1-score, and confusion matrices computed on held-out validation sets.
+- Sequence evaluation checks both per-sequence label accuracy and trend detection accuracy (improving/stable/worsening), where ground truth sequences are available.
+
+6.3 Hardware and Software
+
+- Models were trained and validated on GPU-enabled machines where available. Inference in the backend is CPU-capable but benefits from GPU acceleration for throughput.
+- Key libraries: PyTorch, torchvision, transformers, FastAPI, pdfjs-dist (frontend), React, Tailwind CSS.
+
+
+7. Results
+
+7.1 Single-image Classification
+
+- ViT achieved the best single-image accuracy on validation sets, particularly in distinguishing superficial vs full-thickness burns.
+- EfficientNet provides competitive performance with faster inference times and is used as the fallback and sequence feature extractor.
+
+7.2 Sequence Progression
+
+- The CNN–LSTM sequence model improved detection of temporal trends relative to naive aggregation of per-image predictions, especially on sequences with clear treatment response signals.
+- Progression summaries are generated server-side by comparing the first and last predictions, aggregating confidence, and using heuristics to determine whether the clinical picture is improving or worsening.
+
+7.3 Qualitative Observations
+
+- When images in a sequence vary substantially in lighting or framing, per-image predictions can fluctuate; the sequence model helps stabilize decisions by focusing on consistent features across time.
+
+
+8. Discussion
+
+8.1 Interpretation of Findings
+
+- The multi-model approach balances accuracy and robustness: ViT provides a high-accuracy single-image option; EfficientNet provides fast fallback; the sequence model captures longitudinal dynamics.
+- The system is especially useful for highlighting trends and flagging cases that may need clinician attention.
+
+8.2 Limitations
+
+- Dataset limitations: longitudinal data is relatively scarce and irregularly sampled, limiting sequence-model generalization.
+- Checkpoint compatibility: sequence model loading can fail for mismatched checkpoint formats; recommended process is to always save checkpoints with standardized key prefixes or with a small metadata manifest.
+- Clinical validation: no large-scale clinical trial was performed; real-world performance needs clinical evaluation.
+
+8.3 Ethical and Privacy Considerations
+
+- Medical images are sensitive; deployment must include informed consent, secure storage, and access controls.
+- The system is a decision support tool and must not replace clinician judgment.
+
+
+9. Deployment Instructions and Reproducibility
+
+9.1 Running Locally
+
+Frontend:
+
+```bash
+npm install
+npm run dev
+```
+
+Backend:
+
+```bash
+# create venv
+python -m venv .venv
+# activate on Windows
+.\.venv\Scripts\activate
+pip install -r backend/requirements.txt
+python backend/api.py
+# or
+uvicorn backend.api:app --reload
+```
+
+Ensure the `Trained Models/` folder contains the required model files: ViT checkpoint, EfficientNet CNN checkpoint, and CNN–LSTM checkpoint if sequence analysis is required.
+
+9.2 Generating the Final Report
+
+- A Markdown draft `FINAL_REPORT.md` and a conversion script `scripts/generate_docx_from_md.py` exist in the repository. Run the script with a Python environment that has `python-docx` installed to produce a DOCX copy.
+
+
+10. Conclusion
+
+This project produced a practical prototype for burn scar assessment integrating modern vision architectures with sequence modeling to analyze progression. The system demonstrates the feasibility of recovering clinically useful trend information from photographic sequences and provides a deployable engineering baseline for further data collection and clinical validation.
+
+
+11. Future Work
+
+- Collect more longitudinal patient data to improve sequence model robustness and evaluate model calibration.
+- Explore temporal transformers or attention-only sequence models for progression modeling.
+- Add uncertainty estimation and calibration to provide clinicians with confidence intervals.
+- Integrate secure authentication and role-based access controls for clinical deployment.
+
+
+12. References (Harvard style — placeholders; replace with exact citations)
+
+Dosovitskiy, A., et al., (2020) An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale. arXiv preprint.
+
+Tan, M. and Le, Q., (2019) EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks. ICML.
+
+Hochreiter, S. and Schmidhuber, J., (1997) Long Short-Term Memory. Neural Computation.
+
+(Insert additional clinical and wound-care literature here in Harvard format.)
+
+
+13. Appendix: Code pointers and file locations
+
+- `backend/api.py` — main FastAPI inference service and model loaders.
+- `src/pages/Analyze.js` — frontend analysis UI and multi-image handling.
+- `src/services/analysisService.js` — Firestore history save/load functions.
+- `Trained Models/` — contains `vit_burn_model`, `cnn_model`, and `cnn_ltsm_model` directories and checkpoints.
+- Training scripts: `Trained Models/train_vit.py`, `Trained Models/train_cnn_lstm.py`, etc.
+
+
+Usage notes for pasting into template
+
+- Replace bracket placeholders (e.g., [INSERT STUDENT NAME]) with your details.
+- The References section contains placeholders — expand with full Harvard-style entries for every work you cite in the text.
+- If the template has additional headings not included above, tell me which headings and I will generate matching content.
+
+
+-- END --

@@ -1,0 +1,162 @@
+PROJECT: Intelligent Analysis of Burn Scar Progression
+Date: 2026-02-06
+
+OBJECTIVE
+- Provide an overview of the repository, components, technologies, data, model artifacts, runtime details, endpoints, known issues, and developer notes. This file documents the full project structure and behavior to help developers and reviewers understand what's implemented.
+
+SUMMARY
+- Purpose: AI system to classify burn degree per-image and analyze progression across time using three model classes:
+  - ViT (Vision Transformer): single-image, high-quality analysis
+  - CNN (EfficientNet-B0): fast per-image classifier
+  - CNN-LSTM (EfficientNet backbone + LSTM + attention): sequence model for progression
+- UX: React frontend with pages for Home, Analyze, About, Dashboard, History; cloud-backed history via Firebase.
+- Inference: FastAPI backend exposing `/analyze` endpoint supporting single-image and multi-image (sequence) analysis.
+
+WORKSPACE LAYOUT (top-level)
+- backend/
+  - api.py                -> FastAPI app and inference logic (model loaders, /analyze)
+  - check_firebase.py     -> helper for Firebase (present in repo)
+  - requirements.txt      -> Python dependencies used by backend
+  - README.md, SETUP_FIREBASE.md, etc.
+- src/ (React frontend)
+  - index.js, App.js
+  - firebase-config.js    -> Firebase client config for history storage
+  - pages/
+    - Home.js
+    - Analyze.js
+    - About.js
+    - Dashboard.js
+    - Auth.js
+  - components/
+    - Header.js
+    - Footer.js
+  - context/
+    - AuthContext.js      -> user auth + Firestore hooks
+  - services/
+    - analysisService.js  -> saveAnalysis, getUserAnalyses wrappers for Firestore
+- "Trained Models/" (large folder containing saved model artifacts and training scripts)
+  - vit_burn_model/       -> ViT model files (model.safetensors, config.json)
+  - cnn_model/
+    - efficientnet_b0_burn_model_best.pth
+    - efficientnet_b0_burn_model_final.pth
+  - cnn_ltsm_model/
+    - cnn_lstm_burn_model_best.pth
+    - cnn_lstm_burn_model_final.pth
+  - train_*.py            -> training scripts (train_vit.py, train_vit_improvedaccuracy.py, train_cnn_lstm.py, etc.)
+- public/, package.json, postcss.config.js, tailwind.config.js, scripts/
+
+FRONTEND
+Technologies
+- React, Tailwind CSS, pdfjs-dist (PDF -> images), Firebase (Firestore + Storage client), Fetch API
+Key pages & responsibilities
+- Home.js: Hero + product summary + CTA to Analyze; updated to list models (ViT, CNN, CNN-LSTM); minimalized sizes applied.
+- Analyze.js: core UI for single-image and multi-image analyses. Features:
+  - Model selector: `vit`, `cnn`, `cnn_lstm`
+  - Single-image flows: ViT or CNN
+  - Multi-image flows: select/upload up to 10 images or extract images from PDF pages
+  - Add-image tile: append more images to existing selection
+  - Previews: thumbnails and main preview image; clicking history items loads their images
+  - Sequence analyze: sends multi-part form with `files` fields and `model=cnn_lstm`
+  - Displays results: per-image predictions, progression summary, and enhanced CNN-LSTM UI (timeline, trend badge, per-image confidence bars)
+- About.js: project overview, tech cards; updated to mention all three models; minimalized and centered stats card.
+- Dashboard.js: user-specific results (history) UI (not modified heavily in last round)
+- Auth.js + AuthContext.js: Firebase auth wrapper, provides `user`, `isAuthenticated` and functions, and `saveAnalysis` uses `user.uid` when present
+- services/analysisService.js: serializes results and multiple images to Firestore (imagesBase64, imageNames, rawResult, modelUsed)
+
+FRONTEND NOTES
+- `Analyze.js` posts FormData for both single and multi-image flows. Multi-image uses multiple `files` keys.
+- The UI expects `progression_summary` in API responses; backend now writes the detailed progression report to that key for cnn_lstm flows.
+- Enhanced UI for CNN-LSTM shows timeline and per-image bars; thumbnails saved in history entries and reloaded when opening history.
+
+BACKEND
+Technologies
+- Python 3.10+ recommended, FastAPI, uvicorn, PyTorch, torchvision, transformers (for ViT), Pillow, firebase-admin
+- Backend entry: `backend/api.py` contains startup, model loaders, `predict_*` helpers and `/analyze` route.
+
+Key endpoints / behavior
+- GET `/` : sanity
+- GET `/health` : returns model_loaded boolean
+- POST `/analyze` : main endpoint supporting three model types
+  - Accepts multipart/form-data; tolerant parsing (supports `model`, `model[]`, `model_type`, `files`, `file`, various names)
+  - For `vit`: expects single image; runs ViT pipeline (processor + ViTForImageClassification)
+  - For `cnn`: single image; runs EfficientNet-B0 based classifier
+  - For `cnn_lstm`: expects multiple image files; tries to load CNN-LSTM model; always computes per-image CNN predictions for detailed progression; if cnn_lstm model loads, uses it to compute an overall sequence prediction
+  - Returns JSON with:
+    - Top-level: `model_used`, `burn_degree`, `burn_degree_index`, `confidence`, `confidence_breakdown`, `healing_stage`, `progression_summary`, `recommendations`, `burn_info`, `imageUrl` (if uploaded)
+    - For sequences: `predictions` array (per-image), `trend`, `sequence_prediction` (from cnn_lstm if used), and `progression_report` (full text)
+
+Model loaders
+- ViT loader: uses `transformers.ViTImageProcessor.from_pretrained(MODEL_PATH)` and `ViTForImageClassification.from_pretrained(MODEL_PATH)`; expects `model.safetensors` and `config.json` under `Trained Models/vit_burn_model`.
+- CNN loader: EfficientNet-B0 from `torchvision.models`, replaces classifier to 3 classes, loads checkpoint from `Trained Models/cnn_model/*.pth`
+- CNN-LSTM loader: runtime class implemented in `api.py` to match training: EfficientNet-B0 backbone (classifier replaced with Identity), LSTM (hidden_dim=512, num_layers=2, bidirectional=True), attention layer, classifier. Loader normalizes checkpoint keys (strips `module.`) and tries strict load, then non-strict.
+
+Known backend behaviors & issues
+- CNN-LSTM checkpoint mismatch: if saved checkpoint uses different dimension names/shapes or nesting (prefixes like `cnn.`), loading can fail or lead to `strict=False` fallback. When that occurs, backend falls back to per-image CNN predictions and sets `model_used` to `cnn_fallback`.
+- Logging: `safe_print()` used to avoid Windows UTF-8 errors, and extensive debug logs are printed for form keys, file counts, model load results.
+- Firebase: optional upload to Storage; requires `backend/firebase-service-account.json` or default credentials; code attempts multiple bucket name formats and verifies connectivity.
+- Startup: FastAPI app uses an `asynccontextmanager` lifespan that loads ViT on startup. Uvicorn is launched in `if __name__ == '__main__'` with automatic port probing.
+
+TRAINED MODELS & ARCHITECTURE NOTES
+- ViT model (vit_burn_model)
+  - Files: `model.safetensors`, `config.json`
+  - Used via `transformers` loader
+- CNN model (cnn_model)
+  - EfficientNet-B0 base; final classifier changed to 3-output linear
+  - Checkpoints: `efficientnet_b0_burn_model_final.pth` (or best)
+- CNN-LSTM (cnn_ltsm_model)
+  - Training script indicates architecture: EfficientNet-B0 backbone -> extract 1280-d feature -> LSTM (hidden_dim=512, num_layers=2, bidirectional=True) -> attention -> classifier
+  - Checkpoint files present in folder; loader in `api.py` expects keys either raw or inside `model_state_dict` / `state_dict` and strips `module.` prefix.
+
+DATA
+- `raw_dataset/` and `processed_dataset/` exist in the repository (used during model training); contain many image listing files and prepared train/val splits.
+- `Trained Models/processed_dataset` etc. used during training scripts.
+
+SCRIPTS & DEV
+- Frontend: `package.json` contains `npm run dev` (calls Vite/webpack/start scripts). Use `npm run dev` from `burnscarapp` root.
+- Backend: run via `python api.py` (helper wrapper) or `uvicorn api:app --reload --host 0.0.0.0 --port 8000` in `backend/`
+- Training: `Trained Models/*.py` contain training entrypoints; not intended to run in web runtime.
+
+ENVIRONMENT & DEPENDENCIES
+- Node.js + npm for frontend
+- Python 3.10+ for backend
+- PyTorch: CPU-only works, GPU recommended for faster inference/training (install correct CUDA build)
+- Key Python packages (see `backend/requirements.txt`): fastapi, uvicorn, torch, torchvision, transformers, pillow, firebase-admin, numpy
+
+HOW TO RUN (developer quickstart)
+1) Frontend
+   - cd to project root
+   - install deps: `npm install`
+   - start dev: `npm run dev`
+2) Backend
+   - cd backend
+   - create virtualenv, install requirements: `pip install -r requirements.txt`
+   - ensure model files present in `Trained Models/`
+   - start: `python api.py` or `uvicorn api:app --reload --host 0.0.0.0 --port 8000`
+3) Firebase (optional)
+   - Place `firebase-service-account.json` in `backend/` or configure ADC via `gcloud auth application-default login`
+   - Ensure firebase storage bucket name matches or let code try `project_id.firebasestorage.app` / `project_id.appspot.com`
+
+TROUBLESHOOTING
+- If `/analyze` returns `cnn_fallback` and you expect cnn_lstm:
+  - Inspect backend logs: they will show strict load errors or size mismatch messages for LSTM weights.
+  - Add small debug dump of checkpoint keys and shapes (recommended) to inspect prefixes and dims.
+  - Ensure the runtime loader architecture matches training script exactly (hidden_dim, num_layers, bidirectional flag, feature_dim). If training used a different wrapper (e.g., saved `{'model': model.state_dict()}` or nested `cnn.` prefixes), adjust loader accordingly.
+- If ViT/transformers load fails:
+  - Confirm `Trained Models/vit_burn_model` contains `config.json` and model file.
+- Windows console errors: `safe_print` helps avoid UnicodeEncodeError; ensure locale/terminal supports UTF-8.
+- Port bind errors: `api.py` probes ports 8000-8004 automatically.
+
+DEVELOPER NOTES & SUGGESTIONS
+- Add a small debug endpoint (dev-only) to dump a checkpoint's state_dict keys and shapes to help reconcile checkpoint naming.
+- Consider storing a simple metadata JSON alongside each model checkpoint that documents `feature_dim`, `hidden_dim`, `num_layers`, and whether `module.` prefixes were present at save time.
+- Convert some frontend magic strings (e.g., `progression_summary`) to constants shared in a small `api-schema` JS file to ensure future compatibility.
+- Add unit tests for backend form parsing and for the `analyze` handler (mock UploadFile) to guard regressions.
+- Make CNN-LSTM timeline thumbnails clickable (UI enhancement already discussed).
+
+CONTACT / NEXT STEPS
+- If you want, I can:
+  - Add the debug checkpoint dumper in `backend/api.py`.
+  - Add README.md summary and script snippets for deployment.
+  - Make timeline thumbnails clickable in `Analyze.js`.
+
+END OF DOCUMENT

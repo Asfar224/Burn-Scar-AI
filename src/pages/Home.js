@@ -43,7 +43,7 @@ const Home = () => {
             <section
                 ref={(el) => (sectionsRef.current[0] = el)}
                 data-section="hero"
-                className="relative min-h-[70vh] flex items-center py-8 md:py-12 overflow-hidden"
+                className="relative min-h-screen flex items-center py-8 md:py-12 overflow-hidden"
             >
                 {/* Animated Background Elements */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -53,9 +53,9 @@ const Home = () => {
                 </div>
 
                 <div className="relative max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 w-full">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-center">
                         {/* Left Content */}
-                        <div className={`scroll-slide-left ${visibleSections.has('hero') ? 'visible' : ''}`}>
+                        <div className={`scroll-slide-left lg:col-span-2 ${visibleSections.has('hero') ? 'visible' : ''}`}>
                             <div className="inline-block mb-4">
                                 <span className="bg-gradient-to-r from-medical-blue to-medical-teal text-white px-5 py-2 rounded-full text-xs md:text-sm font-bold shadow-xl animate-fadeIn">
                                     🔥 AI-Powered Medical Technology
@@ -99,7 +99,7 @@ const Home = () => {
             </div>
 
                         {/* Right Visual */}
-                        <div className={`hidden lg:block scroll-zoom ${visibleSections.has('hero') ? 'visible' : ''}`}>
+                        <div className={`hidden lg:block scroll-zoom lg:col-span-1 ${visibleSections.has('hero') ? 'visible' : ''}`}>
               <div className="relative">
                                 <div className="bg-gradient-to-br from-white via-medical-blue/5 to-medical-teal/5 rounded-2xl p-8 shadow-md border border-gray-200/40 backdrop-blur-sm">
                                     <div className="bg-white rounded-xl p-6 shadow-sm animate-float">

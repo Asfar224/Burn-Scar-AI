@@ -75,8 +75,8 @@ const About = () => {
                         </div>
 
                         {/* Right Stats */}
-                        <div className={`hidden lg:block scroll-zoom ${visibleSections.has('overview') ? 'visible' : ''}`}>
-                                <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200/40 backdrop-blur-sm">
+                        <div className={`hidden lg:flex items-center justify-center scroll-zoom ${visibleSections.has('overview') ? 'visible' : ''}`}>
+                            <div className="bg-white rounded-2xl p-8 shadow-md border border-gray-200/40 backdrop-blur-sm">
                                 <div className="grid grid-cols-2 gap-6">
                                     {[
                                         { value: '95%+', label: 'Accuracy Rate', bgClass: 'bg-gradient-to-br from-medical-blue/20 to-medical-blue/10', textClass: 'text-medical-blue', barClass: 'bg-gradient-to-r from-medical-blue to-medical-blue/80', barBg: 'bg-medical-blue/20', delay: '0.1s' },
