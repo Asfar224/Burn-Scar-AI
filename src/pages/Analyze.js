@@ -439,6 +439,16 @@ const Analyze = () => {
     return parsedDate.toLocaleString();
   };
 
+  const escapeHtml = (value) => {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const exportRows = history.map((analysis, index) => ({
     serial: index + 1,
     date: formatHistoryDate(analysis.createdAt || analysis.timestamp),
@@ -576,6 +586,141 @@ const Analyze = () => {
     }
     printWindow.document.open();
     printWindow.document.write(getExportDocumentHtml());
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  };
+
+  const getCurrentAnalysisReportHtml = () => {
+    if (!results) return '';
+
+    const generatedAt = new Date().toLocaleString();
+    const userName = user?.displayName || 'N/A';
+    const userEmail = user?.email || 'N/A';
+    const modelUsed = results.model_used || results.model || selectedModel || 'N/A';
+    const progressionSummary = results.progression_summary || 'N/A';
+    const confidenceRows = Object.entries(results.confidence_breakdown || {})
+      .map(([label, score]) => `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(score)}%</td>
+        </tr>
+      `)
+      .join('');
+    const recommendationRows = (results.recommendations || [])
+      .map((item) => `<li>${escapeHtml(item)}</li>`)
+      .join('');
+    const sequenceRows = (results.predictions || [])
+      .map((item, index) => `
+        <tr>
+          <td>Step ${index + 1}</td>
+          <td>${escapeHtml(item.burn_degree || 'N/A')}</td>
+          <td>${escapeHtml(item.confidence ?? 'N/A')}%</td>
+        </tr>
+      `)
+      .join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Analysis Report</title>
+        <style>
+          body { font-family: Arial, sans-serif; color: #111827; margin: 28px; }
+          h1 { margin: 0; font-size: 28px; letter-spacing: 0.3px; color: #1e3a8a; }
+          h2 { margin: 0 0 10px; font-size: 16px; color: #1f2937; }
+          .subtle { color: #6b7280; font-size: 12px; }
+          .section { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; margin-top: 14px; }
+          .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; font-size: 13px; }
+          .meta-grid strong { color: #374151; }
+          .progression {
+            border: 1.5px solid #f59e0b;
+            background: #fffbeb;
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 14px;
+          }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+          th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+          th { background: #f3f4f6; }
+          ul { margin: 8px 0 0; padding-left: 20px; }
+          li { margin-bottom: 6px; }
+        </style>
+      </head>
+      <body>
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;">
+          <div>
+            <h1>Analysis Report</h1>
+            <div class="subtle">Burn Scar AI - Diagnostic Summary</div>
+          </div>
+          <div class="subtle">Generated: ${escapeHtml(generatedAt)}</div>
+        </div>
+
+        <div class="section">
+          <h2>Patient and Report Information</h2>
+          <div class="meta-grid">
+            <div><strong>User:</strong> ${escapeHtml(userName)}</div>
+            <div><strong>Email:</strong> ${escapeHtml(userEmail)}</div>
+            <div><strong>Model Used:</strong> ${escapeHtml(modelUsed)}</div>
+            <div><strong>Confidence:</strong> ${escapeHtml(results.confidence ?? 0)}%</div>
+            <div><strong>Detected Burn Type:</strong> ${escapeHtml(results.burn_degree || 'N/A')}</div>
+            <div><strong>Healing Stage:</strong> ${escapeHtml(results.healing_stage || 'N/A')}</div>
+          </div>
+        </div>
+
+        <div class="progression">
+          <h2>Progression</h2>
+          <div><strong>Summary:</strong> ${escapeHtml(progressionSummary)}</div>
+          ${results.trend ? `<div style="margin-top:8px;"><strong>Trend:</strong> ${escapeHtml(results.trend)}</div>` : ''}
+        </div>
+
+        <div class="section">
+          <h2>Prediction Confidence Breakdown</h2>
+          <table>
+            <thead>
+              <tr><th>Class</th><th>Confidence</th></tr>
+            </thead>
+            <tbody>
+              ${confidenceRows || '<tr><td colspan="2">No confidence breakdown available.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        ${(results.predictions && results.predictions.length > 0) ? `
+          <div class="section">
+            <h2>Sequence Details</h2>
+            <table>
+              <thead>
+                <tr><th>Step</th><th>Predicted Burn Degree</th><th>Confidence</th></tr>
+              </thead>
+              <tbody>
+                ${sequenceRows}
+              </tbody>
+            </table>
+          </div>
+        ` : ''}
+
+        <div class="section">
+          <h2>Treatment Recommendations</h2>
+          <ul>
+            ${recommendationRows || '<li>No recommendations available.</li>'}
+          </ul>
+        </div>
+      </body>
+      </html>
+    `;
+  };
+
+  const handleExportCurrentAnalysisPDF = () => {
+    if (!results) return;
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!printWindow) {
+      setError('Unable to open report preview. Please allow pop-ups and try again.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(getCurrentAnalysisReportHtml());
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
@@ -790,7 +935,7 @@ const Analyze = () => {
                   <p className="text-red-800 font-semibold mb-4">Your condition appears to be severe. Please visit a doctor immediately.</p>
                   <div className="bg-white rounded-xl p-4">
                     <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• Call emergency services: <strong>911</strong></li>
+                      <li>• Call emergency services: <strong>1122</strong></li>
                       <li>• Visit the nearest hospital emergency room</li>
                       <li>• Contact your primary care physician immediately</li>
                     </ul>
@@ -1034,6 +1179,17 @@ const Analyze = () => {
             <div className="lg:col-span-2 space-y-4">
               {results ? (
                 <>
+                  <div className="flex justify-end animate-slideUp">
+                    <button
+                      onClick={handleExportCurrentAnalysisPDF}
+                      className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:from-indigo-700 hover:to-blue-700 hover:shadow-md transition-all"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 16v-8m0 8l-3-3m3 3l3-3M4 20h16" />
+                      </svg>
+                      Export Analysis Report
+                    </button>
+                  </div>
                   {/* Main Result Card */}
                   <div className={`bg-gradient-to-br ${getBurnDegreeColor(results.burn_degree)} rounded-lg border border-gray-200/50 p-5 animate-slideUp`}>
                     <div className="flex items-start justify-between mb-3">
